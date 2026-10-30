@@ -134,7 +134,13 @@ const expectedTools = [
       "Create multiple new entities in the knowledge graph. An entity whose name already exists, or repeats an earlier entity in the same call, is skipped and its observations are not added; the result lists the skipped names in `skipped`. Use add_observations to add observations to an existing entity.",
     inputSchema: {
       type: "object",
-      properties: { entities: { type: "array", items: entityItem(false) } },
+      properties: {
+        entities: {
+          type: "array",
+          items: entityItem(false),
+          description: "An array of entities to create",
+        },
+      },
       required: ["entities"],
       $schema: JSON_SCHEMA_2020_12,
     },
@@ -158,7 +164,13 @@ const expectedTools = [
       "Create multiple new relations between entities in the knowledge graph. Relations should be in active voice",
     inputSchema: {
       type: "object",
-      properties: { relations: { type: "array", items: relationItem(false) } },
+      properties: {
+        relations: {
+          type: "array",
+          items: relationItem(false),
+          description: "An array of relations to create",
+        },
+      },
       required: ["relations"],
       $schema: JSON_SCHEMA_2020_12,
     },
@@ -198,6 +210,8 @@ const expectedTools = [
             },
             required: ["entityName", "contents"],
           },
+          description:
+            "An array of entities and the observations to add to each",
         },
       },
       required: ["observations"],
@@ -273,6 +287,8 @@ const expectedTools = [
             },
             required: ["entityName", "observations"],
           },
+          description:
+            "An array of entities and the observations to delete from each",
         },
       },
       required: ["deletions"],
@@ -446,6 +462,26 @@ describe("memory tools over the protocol", () => {
     it("lists the nine tools with their schemas and annotations", async () => {
       const { tools } = await client.listTools();
       expect(tools).toEqual(expectedTools);
+    });
+
+    // Every top-level parameter of every tool's input schema must have a non-empty description (#5416).
+    it("advertises descriptions on all top-level input schema parameters (#5416)", async () => {
+      const { tools } = await client.listTools();
+      for (const tool of tools) {
+        const properties =
+          (
+            tool.inputSchema as {
+              properties?: Record<string, { description?: string }>;
+            }
+          )?.properties ?? {};
+        for (const [propName, propSchema] of Object.entries(properties)) {
+          expect(
+            propSchema.description,
+            `Expected ${tool.name}.${propName} to have a description`,
+          ).toBeDefined();
+          expect(propSchema.description!.trim().length).toBeGreaterThan(0);
+        }
+      }
     });
 
     // The idempotentHint the three write tools declare: a repeat of the same
